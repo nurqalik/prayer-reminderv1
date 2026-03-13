@@ -53,10 +53,30 @@
       [
         "expo-splash-screen",
         {
-      "image": "./assets/splash-icon-dark2.png",
-      "backgroundColor": "#ffffff",
-      "imageWidth": 200
-    }
+          "image": "./assets/splash-icon-dark2.png",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Prayer",
+              "label": "Prayer Reminder Widget",
+              "minWidth": "180dp",
+              "minHeight": "100dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 2,
+              "description": "Prayer Widget",
+              "previewImage": "./assets/adaptive-icon.png",
+              "updatePeriodMillis": 1800000,
+              "widgetFeatures": "reconfigurable",
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
+        }
       ]
     ],
     "experiments": {

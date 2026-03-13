@@ -444,7 +444,7 @@ export default function HomeScreen() {
           textAlign: "center",
         }}
       >
-        Prayer Reminder v1
+        Prayer Reminder
       </Text>
       {err ? (
         <Text

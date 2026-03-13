@@ -6,7 +6,9 @@ import { Text } from "@/components/ui/text";
 import { View } from "@/components/ui/view";
 import { useColor } from "@/hooks/useColor";
 import { useModeToggle } from "@/hooks/useModeToggle";
+import { HelloWidget } from "@/widget/HelloWidget";
 import { Code, Eye, Palette, Settings } from "lucide-react-native";
+import { WidgetPreview } from "react-native-android-widget";
 
 export default function SettingsScreen() {
   const card = useColor("card");
@@ -42,6 +44,12 @@ export default function SettingsScreen() {
         >
           Theme {isDark ? "Dark" : "Light"}
         </Text>
+
+        <WidgetPreview
+          renderWidget={() => <HelloWidget />}
+          width={320}
+          height={200}
+        />
 
         {/* <View
           style={{
