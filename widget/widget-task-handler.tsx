@@ -1,7 +1,13 @@
-import React, { useState } from "react";
-import type { WidgetTaskHandlerProps } from "react-native-android-widget";
-import { HelloWidget } from "./HelloWidget";
+import React from "react";
 import { Linking } from "react-native";
+import Storage from "expo-sqlite/kv-store";
+import type {
+  ColorProp,
+  WidgetTaskHandlerProps,
+} from "react-native-android-widget";
+import { HelloWidget } from "./HelloWidget";
+import { CounterWidget } from "./CounterWidget";
+import { PrayerWidget } from "./PrayerWidget";
 
 const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 
@@ -20,40 +26,80 @@ interface StoredState {
 
 const nameToWidget = {
   // Hello will be the **name** with which we will reference our widget.
-  Prayer: HelloWidget,
+  Hello: HelloWidget,
+  Counter: CounterWidget,
+  Prayer: PrayerWidget,
 };
 
-export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
-  const [state, setState] = useState<StoredState | null>(null);
+export const COUNTER_STORAGE_KEY = "CounterWidget:count";
+export const COUNTER_BACKGROUND_KEY = "CounterWidget:backgroundColor";
+export const PRAYER_STORAGE_KEY = "prayer-times";
 
+export function getStoredBackgroundColor(): ColorProp {
+  return (Storage.getItemSync(COUNTER_BACKGROUND_KEY) ||
+    "#1F2937") as ColorProp;
+}
+
+export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   const widgetInfo = props.widgetInfo;
-  const Widget =
-    nameToWidget[widgetInfo.widgetName as keyof typeof nameToWidget];
+  const Widget = nameToWidget[
+    widgetInfo.widgetName as keyof typeof nameToWidget
+  ] as any;
+
+  const renderCurrentWidget = () => {
+    if (widgetInfo.widgetName === "Counter") {
+      const stored = Storage.getItemSync(COUNTER_STORAGE_KEY);
+      const count = stored ? Number(stored) : 0;
+      const backgroundColor = getStoredBackgroundColor();
+      props.renderWidget(
+        <CounterWidget count={count} backgroundColor={backgroundColor} />,
+      );
+    } else if (widgetInfo.widgetName === "Prayer") {
+      const stored = Storage.getItemSync(PRAYER_STORAGE_KEY);
+      const state: StoredState = stored ? JSON.parse(stored) : ({} as any);
+      props.renderWidget(<PrayerWidget state={state} />);
+    } else {
+      props.renderWidget(<Widget {...widgetInfo} />);
+    }
+  };
 
   switch (props.widgetAction) {
     case "WIDGET_ADDED":
-      props.renderWidget(<Widget state={state} />);
-      break;
-
     case "WIDGET_UPDATE":
-      props.renderWidget(<Widget state={state} />);
-      break;
-
     case "WIDGET_RESIZED":
-      props.renderWidget(<Widget state={state} />);
+      renderCurrentWidget();
       break;
 
     case "WIDGET_DELETED":
       // Not needed for now
       break;
 
-    case "WIDGET_CLICK":
+    case "WIDGET_CLICK": {
       if (props.clickAction === "OPEN_APP") {
-        Linking.openURL("prayer-reminderv1://index");
+        Linking.openURL("androidwidgetapp://home");
+        break;
       }
-      props.renderWidget(<Widget state={state} />);
-      break;
 
+      if (props.clickAction === "OPEN_PRAYER") {
+        Linking.openURL("prayer-reminderv1://home");
+        break;
+      }
+
+      if (widgetInfo.widgetName === "Counter") {
+        const currentValue = Number(props.clickActionData?.value) || 0;
+        const backgroundColor = (props.clickActionData?.backgroundColor ||
+          getStoredBackgroundColor()) as ColorProp;
+        const count =
+          currentValue + (props.clickAction === "INCREMENT" ? 1 : -1);
+        
+        Storage.setItemSync(COUNTER_STORAGE_KEY, `${count}`);
+        
+        props.renderWidget(
+          <CounterWidget count={count} backgroundColor={backgroundColor} />,
+        );
+      }
+      break;
+    }
     default:
       break;
   }

@@ -17,10 +17,7 @@
     },
     "notification": {
       "icon": "./assets/images/icon.png",
-      "color": "#ffffff",
-      "defaultChannel": "default",
-      "imageWidth": 96,
-      "enableBackgroundRemoteNotifications": true
+      "color": "#ffffff"
     },
     "android": {
       "permissions": [
@@ -34,7 +31,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "useNextNotificationsApi": true,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true,
       "package": "com.nurqalik.prayerreminderv1"
@@ -63,21 +59,42 @@
         {
           "widgets": [
             {
+              "name": "Hello",
+              "label": "My Hello Widget",
+              "minWidth": "320dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 2,
+              "description": "This is my first widget",
+              "previewImage": "./assets/adaptive-icon.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Counter",
+              "label": "My Counter Widget",
+              "minWidth": "320dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 2,
+              "description": "This is my second widget",
+              "previewImage": "./assets/adaptive-icon.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
               "name": "Prayer",
-              "label": "Prayer Reminder Widget",
-              "minWidth": "180dp",
-              "minHeight": "100dp",
+              "label": "Prayer Widget",
+              "minWidth": "320dp",
+              "minHeight": "120dp",
               "targetCellWidth": 5,
               "targetCellHeight": 2,
               "description": "Prayer Widget",
               "previewImage": "./assets/adaptive-icon.png",
-              "updatePeriodMillis": 1800000,
-              "widgetFeatures": "reconfigurable",
-              "resizeMode": "horizontal|vertical"
+              "updatePeriodMillis": 1800000
             }
           ]
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -15,6 +15,9 @@ import * as TaskManager from "expo-task-manager";
 import { useEffect, useState } from "react";
 import { Alert } from "react-native";
 import { Spinner } from "@/components/ui/spinner";
+import { Storage } from "expo-sqlite/kv-store";
+
+export const PRAYER_STORAGE_KEY = "prayer-times";
 
 // --------------------- Constants & Types ---------------------
 const TASK_NAME = "PRAYER_TIMES_REFRESH";
@@ -350,6 +353,7 @@ export default function HomeScreen() {
         const today = localDateISO();
 
         if (stored && stored.dateISO === today) {
+          Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(stored));
           setState(stored);
           const scheduled =
             await Notifications.getAllScheduledNotificationsAsync();
@@ -361,6 +365,7 @@ export default function HomeScreen() {
             stored?.method ?? 20,
             stored?.school ?? 0,
           );
+          Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(s));
           setState(s);
         }
       } catch (e: any) {
@@ -376,6 +381,7 @@ export default function HomeScreen() {
         state?.method ?? 20,
         state?.school ?? 0,
       );
+      Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(s));
       setState(s);
       setLoading(false);
       Alert.alert(

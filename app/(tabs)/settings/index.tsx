@@ -45,11 +45,11 @@ export default function SettingsScreen() {
           Theme {isDark ? "Dark" : "Light"}
         </Text>
 
-        <WidgetPreview
+        {/* <WidgetPreview
           renderWidget={() => <HelloWidget />}
           width={320}
           height={200}
-        />
+        /> */}
 
         {/* <View
           style={{
