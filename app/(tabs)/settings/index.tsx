@@ -20,7 +20,7 @@ export default function SettingsScreen() {
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{
-        flex: 1,
+        flexGrow: 1,
         gap: 18,
         paddingTop: 96,
         alignItems: "center",
@@ -44,6 +44,12 @@ export default function SettingsScreen() {
         >
           Theme {isDark ? "Dark" : "Light"}
         </Text>
+        {/* Footer */}
+        <View style={{ marginTop: 48, alignItems: "center", opacity: 0.3 }}>
+          <Text style={{ fontSize: 12 }}>
+            © {new Date().getFullYear()} Roe • All rights reserved
+          </Text>
+        </View>
 
         {/* <WidgetPreview
           renderWidget={() => <HelloWidget />}

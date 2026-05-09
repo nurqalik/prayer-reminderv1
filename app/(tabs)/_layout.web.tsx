@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '@/components/ui/icon';
 import { useColor } from '@/hooks/useColor';
 import { Tabs } from 'expo-router';
-import { Home, Search, Settings } from 'lucide-react-native';
+import { Home, MessageCircle, Settings } from 'lucide-react-native';
 
 export default function WebTabsLayout() {
   const primary = useColor('primary');
@@ -25,21 +25,21 @@ export default function WebTabsLayout() {
       />
 
       <Tabs.Screen
-        name='settings'
+        name='chat'
         options={{
-          title: 'Settings',
+          title: 'Chat',
           tabBarIcon: ({ color }) => (
-            <Icon name={Settings} size={24} color={color} />
+            <Icon name={MessageCircle} size={24} color={color} />
           ),
         }}
       />
 
       <Tabs.Screen
-        name='search'
+        name='settings'
         options={{
-          title: 'Search',
+          title: 'Settings',
           tabBarIcon: ({ color }) => (
-            <Icon name={Search} size={24} color={color} />
+            <Icon name={Settings} size={24} color={color} />
           ),
         }}
       />

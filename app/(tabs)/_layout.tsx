@@ -40,6 +40,18 @@ export default function TabsLayout() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name='chat'>
+        {Platform.select({
+          ios: <Icon sf='message.fill' />,
+          android: (
+            <Icon
+              src={<VectorIcon family={MaterialIcons} name='message-circle' />}
+            />
+          ),
+        })}
+        <Label>Chat</Label>
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name='settings'>
         {Platform.select({
           ios: <Icon sf='gear' />,
@@ -48,20 +60,6 @@ export default function TabsLayout() {
           ),
         })}
         <Label>Settings</Label>
-        <Badge>1</Badge>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger
-        name='search'
-        role={isLiquidGlassAvailable() ? 'search' : undefined}
-      >
-        {Platform.select({
-          ios: <Icon sf='magnifyingglass' />,
-          android: (
-            <Icon src={<VectorIcon family={MaterialIcons} name='search' />} />
-          ),
-        })}
-        <Label>Search</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

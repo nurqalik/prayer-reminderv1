@@ -1,19 +1,32 @@
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Link } from "@/components/ui/link";
 import { Text } from "@/components/ui/text";
 import { View } from "@/components/ui/view";
+import { ScrollView } from "@/components/ui/scroll-view";
 import { useColor } from "@/hooks/useColor";
-import { RefreshCw, Terminal, Trash2 } from "lucide-react-native";
+import {
+  RefreshCw,
+  Trash2,
+  Sunrise,
+  Sun,
+  SunMedium,
+  Sunset,
+  Moon,
+  Clock,
+  MapPin,
+  Calendar,
+  ChevronRight,
+} from "lucide-react-native";
 import { DateTime } from "luxon";
 import * as Notifications from "expo-notifications";
 import * as Location from "expo-location";
 import * as BackgroundFetch from "expo-background-fetch";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as TaskManager from "expo-task-manager";
-import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { useEffect, useState, useMemo } from "react";
+import { Alert, Dimensions } from "react-native";
 import { Spinner } from "@/components/ui/spinner";
 import { Storage } from "expo-sqlite/kv-store";
 
@@ -144,8 +157,8 @@ async function scheduleDailyPrayer(name: PrayerName, hhmm: string, tz: string) {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: `${name} time`,
-      body: `🕌 Waktunya sholat ${name}.\nJadwal: ${hhmm} (${tz})`,
+      title: name,
+      body: `It's time to pray. • ${hhmm}`,
       sound: true,
       categoryIdentifier: CATEGORY_SNOOZE,
     },
@@ -170,8 +183,8 @@ async function scheduleDailyPrayer(name: PrayerName, hhmm: string, tz: string) {
   if (now.hour === hour && now.minute === minute) {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: `${name} time (now)`,
-        body: `🕌 Waktunya sholat ${name} (sekarang).`,
+        title: name,
+        body: `It's time to pray. • ${hhmm}`,
         sound: true,
       },
       trigger: {
@@ -203,21 +216,7 @@ async function registerSnoozeCategory() {
   ]);
 }
 
-registerSnoozeCategory(); // <= add this
-
-// const aa = async() => {
-//   await Notifications.scheduleNotificationAsync({
-//     content: {
-//       title: `Test`,
-//       body: `🕌 Test Notification`,
-//       sound: true,
-//       categoryIdentifier: CATEGORY_SNOOZE, // <= adds the buttons
-//     },
-//     // simple 3s timer
-//     trigger: { seconds: 3, channelId: NOTIF_CHANNEL_ID, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL },
-//   });
-
-// }
+registerSnoozeCategory();
 
 // Five explicit functions you can call independently if needed
 async function scheduleFajr(state: StoredState) {
@@ -266,12 +265,49 @@ async function loadState(): Promise<StoredState | null> {
   return raw ? (JSON.parse(raw) as StoredState) : null;
 }
 
+// Map ISO Country Code to Aladhan Method ID
+const COUNTRY_METHOD_MAP: Record<string, number> = {
+  SA: 4, // Makkah
+  ID: 20, // Indonesia
+  MY: 17, // Malaysia (JAKIM)
+  SG: 11, // Singapore
+  AE: 8, // Gulf Region (UAE)
+  EG: 5, // Egypt
+  PK: 1, // Karachi
+  US: 2, // ISNA
+  GB: 3, // MWL
+  FR: 12, // France
+  TR: 13, // Turkey
+  RU: 14, // Russia
+  TN: 18, // Tunisia
+  DZ: 19, // Algeria
+  MA: 21, // Morocco
+  JO: 23, // Jordan
+  KW: 9, // Kuwait
+  QA: 10, // Qatar
+  IR: 7, // Tehran
+};
+
 // --------------------- Refresh pipeline ---------------------
-async function refreshAndReschedule(method = 20, school: 0 | 1 = 0) {
+async function refreshAndReschedule(
+  method_override?: number,
+  school: 0 | 1 = 0,
+) {
   const loc = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
   });
   const { latitude: lat, longitude: lng } = loc.coords;
+
+  let method = method_override;
+  if (!method) {
+    const address = await Location.reverseGeocodeAsync({
+      latitude: lat,
+      longitude: lng,
+    });
+    const country = address[0]?.isoCountryCode;
+    method = country ? COUNTRY_METHOD_MAP[country] || 20 : 20;
+    console.log(`[GEO] Detected country: ${country}, using method: ${method}`);
+  }
 
   const { timings, tz } = await fetchPrayerTimes(lat, lng, method, school);
 
@@ -297,14 +333,13 @@ async function refreshAndReschedule(method = 20, school: 0 | 1 = 0) {
 }
 
 // --------------------- Background Task ---------------------
-// Runs periodically; we refresh after midnight or if nothing is scheduled
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
     const stored = await loadState();
     const today = localDateISO();
 
     if (!stored || stored.dateISO !== today) {
-      await refreshAndReschedule(stored?.method ?? 20, stored?.school ?? 0);
+      await refreshAndReschedule(undefined, stored?.school ?? 0);
     } else {
       const scheduled = await Notifications.getAllScheduledNotificationsAsync();
       if (scheduled.length === 0) {
@@ -323,25 +358,168 @@ async function ensureBackgroundTaskRegistered() {
     const isRegistered = await TaskManager.isTaskRegisteredAsync(TASK_NAME);
     if (!isRegistered) {
       await BackgroundFetch.registerTaskAsync(TASK_NAME, {
-        minimumInterval: 3 * 60 * 60, // OS decides cadence; enough to catch ~after midnight
+        minimumInterval: 3 * 60 * 60,
         stopOnTerminate: false,
         startOnBoot: true,
       });
     }
   } catch (e) {
-    // ignore in Expo Go / unsupported envs
     console.log("[BG] register error:", String(e));
   }
 }
 
+const BACKGROUND_NOTIFICATION_TASK = "BACKGROUND_NOTIFICATION_TASK";
+
+TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => {
+  if (error) {
+    console.log("[BG NOTIF] Error:", error);
+    return;
+  }
+  const response = data as Notifications.NotificationResponse;
+  const action = response.actionIdentifier;
+  if (action === "SNOOZE_10") {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Prayer Reminder",
+        body: `Reminding you again in 10 minutes.`,
+        sound: true,
+        categoryIdentifier: CATEGORY_SNOOZE,
+      },
+      trigger: {
+        seconds: 600,
+        channelId: NOTIF_CHANNEL_ID,
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      },
+    });
+    console.log("[BG NOTIF] Snoozed for 10 minutes");
+  }
+});
+
+Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK).catch((e) =>
+  console.log("[BG NOTIF] register error:", String(e)),
+);
+
+// --------------------- UI Helper Components ---------------------
+
+const PRAYER_ICONS: Record<PrayerName, any> = {
+  Fajr: Sunrise,
+  Dhuhr: Sun,
+  Asr: SunMedium,
+  Maghrib: Sunset,
+  Isha: Moon,
+};
+
+function getGreeting() {
+  const hour = DateTime.now().hour;
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+function getNextPrayer(timings: StoredTimings): {
+  name: PrayerName;
+  time: DateTime;
+} {
+  const now = DateTime.now();
+  const prayerTimes = PRAYER_KEYS.map((name) => {
+    const { hour, minute } = parseHHmm(timings[name]);
+    let time = now.set({ hour, minute, second: 0, millisecond: 0 });
+    if (time < now) {
+      time = time.plus({ days: 1 });
+    }
+    return { name, time };
+  });
+
+  prayerTimes.sort((a, b) => a.time.toMillis() - b.time.toMillis());
+  return prayerTimes[0];
+}
+
+function getCountdown(target: DateTime): string {
+  const diff = target.diffNow(["hours", "minutes"]).toObject();
+  const h = Math.floor(diff.hours || 0);
+  const m = Math.floor(diff.minutes || 0);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+const PrayerItem = ({
+  name,
+  time,
+  isNext,
+}: {
+  name: PrayerName;
+  time: string;
+  isNext: boolean;
+}) => {
+  const IconComponent = PRAYER_ICONS[name];
+  const primary = useColor("text");
+  const muted = useColor("textMuted");
+  const accent = useColor("blue");
+  const cardBg = useColor("card");
+  const border = useColor("border");
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 16,
+        borderBottomWidth: name === "Isha" ? 0 : 0.5,
+        borderBottomColor: border,
+        opacity: isNext ? 1 : 0.6,
+      }}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: isNext ? accent + "15" : cardBg,
+          justifyContent: "center",
+          alignItems: "center",
+          marginRight: 16,
+        }}
+      >
+        <IconComponent size={18} color={isNext ? accent : primary} />
+      </View>
+      <Text
+        style={{
+          flex: 1,
+          fontWeight: isNext ? "700" : "500",
+          fontSize: 17,
+          color: primary,
+        }}
+      >
+        {name}
+      </Text>
+      <Text
+        style={{
+          fontWeight: isNext ? "700" : "400",
+          fontSize: 17,
+          color: isNext ? accent : primary,
+        }}
+      >
+        {time}
+      </Text>
+    </View>
+  );
+};
+
 export default function HomeScreen() {
-  const green = useColor("green");
-  const muted = useColor("muted");
+  const primary = useColor("text");
+  const muted = useColor("textMuted");
+  const accent = useColor("blue");
+  const background = useColor("background");
 
   const [state, setState] = useState<StoredState | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [showcoord, setShowcoord] = useState(false);
+  const [now, setNow] = useState(DateTime.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(DateTime.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -361,10 +539,7 @@ export default function HomeScreen() {
             await scheduleAllPrayers(stored);
           }
         } else {
-          const s = await refreshAndReschedule(
-            stored?.method ?? 20,
-            stored?.school ?? 0,
-          );
+          const s = await refreshAndReschedule(undefined, stored?.school ?? 0);
           Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(s));
           setState(s);
         }
@@ -377,17 +552,11 @@ export default function HomeScreen() {
   const manualRefresh = async () => {
     try {
       setLoading(true);
-      const s = await refreshAndReschedule(
-        state?.method ?? 20,
-        state?.school ?? 0,
-      );
+      const s = await refreshAndReschedule(undefined, state?.school ?? 0);
       Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(s));
       setState(s);
       setLoading(false);
-      Alert.alert(
-        "Refreshed",
-        "Prayer times updated and daily notifications scheduled.",
-      );
+      Alert.alert("Refreshed", "Prayer times updated.");
     } catch (e: any) {
       setLoading(false);
       Alert.alert("Error", e?.message ?? "Failed to refresh.");
@@ -397,214 +566,222 @@ export default function HomeScreen() {
   const clearSchedules = async () => {
     await Notifications.cancelAllScheduledNotificationsAsync();
     __scheduledKeys.clear();
-    Alert.alert("Cleared", "All scheduled notifications cancelled.");
+    Alert.alert("Cleared", "All notifications cancelled.");
   };
 
-  useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        const action = response.actionIdentifier;
-        if (action === Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-
-        const map: Record<string, number> = {
-          SNOOZE_10: 600,
-        };
-        const seconds = map[action];
-        if (!seconds) return;
-
-        // schedule the next notification
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Sholat Reminder",
-            body: `Will remind you again in ${Math.round(
-              seconds / 60,
-            )} minutes.`,
-            sound: true,
-            categoryIdentifier: CATEGORY_SNOOZE, // keep buttons on the follow-up too
-          },
-          // time-interval trigger; no need to include "type" if TS complains
-          trigger: {
-            seconds,
-            channelId: NOTIF_CHANNEL_ID,
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          },
-        });
-      },
-    );
-    return () => sub.remove();
-  }, []);
+  const nextPrayer = useMemo(() => {
+    if (!state) return null;
+    return getNextPrayer(state.timings);
+  }, [state, now]);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        gap: 16,
-        padding: 24,
-        paddingTop: 100,
-        justifyContent: "center",
-      }}
-    >
-      <Text
-        variant="heading"
-        style={{
-          textAlign: "center",
+    <View style={{ flex: 1, backgroundColor: background }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: 24,
+          paddingTop: 100,
+          paddingBottom: 40,
         }}
       >
-        Prayer Reminder
-      </Text>
-      {err ? (
-        <Text
+        {/* Header Section */}
+        <View
           style={{
-            color: "#ef4444",
-            marginBottom: 10,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 32,
           }}
         >
-          Error: {err}
-        </Text>
-      ) : null}
-
-      <View
-        style={{
-          marginBottom: 20,
-        }}
-      >
-        {loading ? (
-          <Card>
-            <Spinner size="default" variant="default" showLabel />
-          </Card>
-        ) : state ? (
-          <Card>
+          <View>
+            <Text variant="title" style={{ fontSize: 28, fontWeight: "800" }}>
+              {getGreeting()}
+            </Text>
             <View
               style={{
-                gap: 8,
-                marginBottom: 16,
-                flexDirection: "column",
-                alignItems: "flex-start",
-                paddingHorizontal: 12,
-                paddingVertical: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 4,
+                opacity: 0.6,
               }}
             >
-              {loading ? (
-                <Spinner size="default" variant="default" showLabel />
-              ) : (
+              <Calendar size={14} color={muted} style={{ marginRight: 4 }} />
+              <Text variant="caption" style={{ fontSize: 14 }}>
+                {now.toFormat("EEEE, d MMMM")}
+              </Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <Icon
+              name={RefreshCw}
+              size={20}
+              color={muted}
+              onPress={manualRefresh}
+              disabled={loading}
+            />
+            <Icon
+              name={Trash2}
+              size={20}
+              color={muted}
+              onPress={clearSchedules}
+            />
+          </View>
+        </View>
+
+        {err && (
+          <Card style={{ backgroundColor: "#fee2e2", marginBottom: 20 }}>
+            <Text style={{ color: "#ef4444" }}>{err}</Text>
+          </Card>
+        )}
+
+        {loading ? (
+          <Card style={{ padding: 40, alignItems: "center" }}>
+            <Spinner showLabel label="Updating times..." />
+          </Card>
+        ) : state && nextPrayer ? (
+          <View style={{ gap: 24 }}>
+            {/* Next Prayer Card */}
+            <Card style={{ backgroundColor: accent, borderBottomWidth: 0 }}>
+              <CardContent style={{ padding: 24 }}>
                 <View
                   style={{
-                    flex: 1,
                     flexDirection: "row",
-                    rowGap: 8,
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    paddingVertical: 8,
-                    paddingHorizontal: 2,
-                    width: "100%",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
                   }}
                 >
-                  <Icon
-                    name={RefreshCw}
+                  <View>
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.8)",
+                        fontWeight: "600",
+                        fontSize: 14,
+                        marginBottom: 4,
+                      }}
+                    >
+                      NEXT PRAYER
+                    </Text>
+                    <Text
+                      style={{ color: "#fff", fontSize: 32, fontWeight: "800" }}
+                    >
+                      {nextPrayer.name}
+                    </Text>
+                  </View>
+                  <View
                     style={{
-                      marginRight: 8,
-                    }}
-                    disabled={loading}
-                    onPress={manualRefresh}
-                  ></Icon>
-                  <Icon name={Trash2} onPress={clearSchedules}></Icon>
-                </View>
-              )}
-              <Text
-                variant="caption"
-                style={{
-                  color: green,
-                  fontFamily: "monospace",
-                  fontSize: 16,
-                  textAlign: "center",
-                }}
-              >
-                Date: {state?.dateISO}
-              </Text>
-              <Text
-                variant="caption"
-                style={{
-                  color: green,
-                  fontFamily: "monospace",
-                  fontSize: 16,
-                  textAlign: "center",
-                }}
-              >
-                Time Zone: {state?.tz}
-              </Text>
-              <View
-                style={{
-                  marginTop: 10,
-                }}
-                className="p-8"
-              >
-                {PRAYER_KEYS.map((k) => (
-                  <Text
-                    key={k}
-                    style={{
-                      fontSize: 18,
-                      fontWeight: "600",
-                      marginVertical: 2,
-                      fontFamily: "Poppins",
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      padding: 8,
+                      borderRadius: 12,
                     }}
                   >
-                    {k}: {state?.timings[k]}
-                  </Text>
-                ))}
+                    <Clock size={24} color="#fff" />
+                  </View>
+                </View>
+
+                <View
+                  style={{
+                    marginTop: 24,
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View>
+                    <Text
+                      style={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}
+                    >
+                      Scheduled at
+                    </Text>
+                    <Text
+                      style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}
+                    >
+                      {state.timings[nextPrayer.name]}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text
+                      style={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}
+                    >
+                      Coming up in
+                    </Text>
+                    <Text
+                      style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}
+                    >
+                      {getCountdown(nextPrayer.time)}
+                    </Text>
+                  </View>
+                </View>
+              </CardContent>
+            </Card>
+
+            {/* Prayer List */}
+            <View>
+              <Text
+                variant="subtitle"
+                style={{ marginBottom: 16, fontWeight: "700" }}
+              >
+                Today's Schedule
+              </Text>
+              <Card>
+                <CardContent
+                  style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+                >
+                  {PRAYER_KEYS.map((k) => (
+                    <PrayerItem
+                      key={k}
+                      name={k}
+                      time={state.timings[k]}
+                      isNext={nextPrayer.name === k}
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+            </View>
+
+            {/* Location Info */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 16,
+                opacity: 0.5,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <MapPin size={12} color={muted} style={{ marginRight: 4 }} />
+                <Text variant="caption" style={{ fontSize: 12 }}>
+                  {state.tz.split("/")[1].replace("_", " ")}
+                </Text>
               </View>
               <View
                 style={{
-                  alignItems: "center",
-                  width: "100%",
+                  width: 4,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: muted,
                 }}
-              >
-                <Text
-                  style={{
-                    textAlign: "center",
-                    opacity: 0.6,
-                    marginTop: 28,
-                    fontSize: 14,
-                    fontWeight: "600",
-                  }}
-                >
-                  Method: {state?.method} · School:{" "}
-                  {state?.school === 0 ? "Shafi" : "Hanafi"}
-                </Text>
-              </View>
+              />
+              <Text variant="caption" style={{ fontSize: 12 }}>
+                Method {state.method}
+              </Text>
             </View>
-          </Card>
+          </View>
         ) : (
-          <Text
+          <View
             style={{
-              fontSize: 16,
-              marginTop: 6,
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingTop: 100,
             }}
           >
-            Initializing...
-          </Text>
+            <Spinner />
+            <Text style={{ marginTop: 16, color: muted }}>
+              Initializing prayer times...
+            </Text>
+          </View>
         )}
-      </View>
-      <View
-        style={{
-          width: "100%",
-          flex: 1,
-          marginTop: "auto",
-          alignItems: "center",
-          paddingVertical: 12,
-        }}
-      >
-        <Text
-          style={{
-            opacity: 0.5,
-            fontSize: 14,
-          }}
-        >
-          © Roe {new Date().getFullYear()} • All right reserved
-        </Text>
-      </View>
-      {/* <Link asChild href="/sheet">
-        <Button>Open Components Sheet</Button>
-      </Link> */}
+      </ScrollView>
     </View>
   );
 }
