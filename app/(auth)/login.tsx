@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View as RNView,
-  Platform,
-} from "react-native";
+import { StyleSheet, TouchableOpacity, View as RNView } from "react-native";
 import { Image } from "expo-image";
 import { View } from "@/components/ui/view";
 import { Text } from "@/components/ui/text";
@@ -25,10 +20,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
-
-WebBrowser.maybeCompleteAuthSession();
+import {
+  GoogleSignin,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -54,53 +49,41 @@ export default function LoginScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Google Auth Setup
-  // NOTE: You must replace these with your actual Client IDs from Google Cloud Console
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId:
-      "406758684869-b2vg9o0rmhv1u16h6u7ra5pbvg6fsa8c.apps.googleusercontent.com",
-    iosClientId: "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
-    webClientId:
-      "406758684869-oon4su278s5tm2rvjlofun1ebg4us031.apps.googleusercontent.com",
-  });
-
+  // Initialize Native Google Sign-In
   useEffect(() => {
-    if (response?.type === "success") {
-      const { authentication } = response;
-      handleGoogleAuthSuccess(authentication?.accessToken);
-    }
-  }, [response]);
+    GoogleSignin.configure({
+      webClientId:
+        "406758684869-oon4su278s5tm2rvjlofun1ebg4us031.apps.googleusercontent.com",
+      offlineAccess: true,
+    });
+  }, []);
 
-  const handleGoogleAuthSuccess = async (token?: string) => {
-    if (!token) return;
-    setLoading(true);
+  const handleGoogleLogin = async () => {
     try {
-      // Fetch user info from Google
-      const userInfoResponse = await fetch(
-        "https://www.googleapis.com/userinfo/v2/me",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      const googleUser = await userInfoResponse.json();
+      setLoading(true);
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+
+      const user = userInfo.data?.user;
+      if (!user) throw new Error("No user data returned from Google");
 
       const googleData = {
-        googleId: googleUser.id,
-        email: googleUser.email,
-        name: googleUser.name,
-        image: googleUser.picture,
+        googleId: user.id,
+        email: user.email,
+        name: user.name ?? undefined,
+        image: user.photo ?? undefined,
       };
 
       try {
-        // Attempt to upgrade first (handles guest -> google migration)
+        // Attempt to upgrade first (links existing guest session to Google)
         await upgradeToGoogle(googleData);
       } catch (e: any) {
-        // If upgrade fails (e.g. account already linked), try logging in
+        // Fallback to standard login if account is already linked
         if (
           e.message?.includes("already linked") ||
           e.message?.includes("CONFLICT")
         ) {
-          await loginWithGoogle({ googleId: googleUser.id });
+          await loginWithGoogle({ googleId: user.id });
         } else {
           throw e;
         }
@@ -108,15 +91,27 @@ export default function LoginScreen() {
 
       toast({
         title: "Welcome!",
-        description: `Successfully signed in as ${googleUser.name}`,
+        description: `Successfully signed in as ${user.name}`,
         variant: "success",
       });
-    } catch (e: any) {
-      toast({
-        title: "Google Auth Error",
-        description: e?.message ?? "Failed to authenticate with Google.",
-        variant: "error",
-      });
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User closed the modal
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        // Operation already in progress
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        toast({
+          title: "Error",
+          description: "Google Play Services not available",
+          variant: "error",
+        });
+      } else {
+        toast({
+          title: "Google Login Error",
+          description: error.message,
+          variant: "error",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -131,7 +126,6 @@ export default function LoginScreen() {
       } else {
         await signup({ name, email, password });
       }
-      // Navigation is handled by the root layout's useEffect
     } catch (e: any) {
       toast({
         title: "Error",
@@ -144,23 +138,10 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    if (!request) {
-      toast({
-        title: "Initialization Error",
-        description: "Google Auth is still initializing. Please try again.",
-        variant: "error",
-      });
-      return;
-    }
-    promptAsync();
-  };
-
   const handleGuestLogin = async () => {
     try {
       setLoading(true);
       await loginAsGuest();
-      // Navigation is handled by the root layout's useEffect
     } catch (e) {
       toast({
         title: "Error",
@@ -249,7 +230,7 @@ export default function LoginScreen() {
           variant="outline"
           onPress={handleGoogleLogin}
           style={styles.socialBtn}
-          disabled={loading || authLoading || !request}
+          disabled={loading || authLoading}
         >
           <RNView style={styles.socialBtnContent}>
             <Image
