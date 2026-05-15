@@ -3,15 +3,16 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"],
+      "~/*": ["../prayer-reminder-backend/src/*"]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "../prayer-reminder-backend/src/**/*.ts",
+    "../prayer-reminder-backend/generated/**/*.ts"
   ]
 }

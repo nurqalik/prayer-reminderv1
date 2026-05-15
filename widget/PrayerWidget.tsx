@@ -3,23 +3,10 @@ import React from "react";
 import {
   FlexWidget,
   TextWidget,
-  ImageWidget,
 } from "react-native-android-widget";
 
-const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
-
-type PrayerName = (typeof PRAYER_KEYS)[number];
-type StoredTimings = Record<PrayerName, string>;
-
-interface StoredState {
-  dateISO: string; // "YYYY-MM-DD" (device-local)
-  lat: number;
-  lng: number;
-  method: number; // Aladhan method id
-  school: 0 | 1; // 0: Shafi, 1: Hanafi
-  timings: StoredTimings; // e.g. { Maghrib: "17:32" }
-  tz: string; // e.g. "Asia/Jakarta"
-}
+// Utilities
+import { StoredState, PRAYER_KEYS, PrayerName } from "@/utils/prayer-storage";
 
 export function PrayerWidget({ state }: { state: StoredState }) {
   const now = new Date();
@@ -51,8 +38,7 @@ export function PrayerWidget({ state }: { state: StoredState }) {
         padding: 16,
         flexDirection: "column",
       }}
-      clickAction="OPEN_PRAYER"
-      accessibilityLabel="Prayer Reminder Widget"
+      clickAction="OPEN_APP"
     >
       {/* Header */}
       <FlexWidget
@@ -70,7 +56,7 @@ export function PrayerWidget({ state }: { state: StoredState }) {
             text="Prayer Schedule"
             style={{
               fontSize: 12,
-              color: "#ffffff",
+              color: "#a1a1aa",
               fontWeight: "700",
               marginLeft: 8,
             }}
@@ -100,6 +86,7 @@ export function PrayerWidget({ state }: { state: StoredState }) {
       >
         {PRAYER_KEYS.map((k) => {
           const isNext = k === nextPrayerName;
+          const isCompleted = !!state?.completed?.[k];
 
           return (
             <FlexWidget
@@ -120,17 +107,30 @@ export function PrayerWidget({ state }: { state: StoredState }) {
                 style={{
                   fontSize: 14,
                   fontWeight: isNext ? "700" : "500",
-                  color: isNext ? "#ffffff" : "#a1a1aa",
+                  color: isNext ? "#ffffff" : isCompleted ? "#71717a" : "#a1a1aa",
                 }}
               />
-              <TextWidget
-                text={state?.timings?.[k] ?? "--:--"}
-                style={{
-                  fontSize: 14,
-                  fontWeight: isNext ? "700" : "600",
-                  color: isNext ? "#ffffff" : "#e4e4e7",
-                }}
-              />
+              
+              <FlexWidget style={{ flexDirection: "row", alignItems: "center" }}>
+                <TextWidget
+                  text={state?.timings?.[k] ?? "--:--"}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: isNext ? "700" : "600",
+                    color: isNext ? "#ffffff" : isCompleted ? "#a1a1aa" : "#e4e4e7",
+                  }}
+                />
+                {isCompleted && (
+                  <TextWidget
+                    text=" ✓"
+                    style={{
+                      fontSize: 14,
+                      color: isNext ? "#ffffff" : "#3b82f6",
+                      fontWeight: "700",
+                    }}
+                  />
+                )}
+              </FlexWidget>
             </FlexWidget>
           );
         })}

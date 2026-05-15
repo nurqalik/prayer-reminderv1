@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "prayer-reminderv1",
+    "name": "Prayer Reminder",
     "slug": "prayer-reminderv1",
     "scheme": "prayer-reminderv1",
     "version": "1.0.0",
@@ -25,7 +25,11 @@
         "ACCESS_FINE_LOCATION",
         "VIBRATE",
         "WAKE_LOCK",
-        "SCHEDULE_EXACT_ALARM"
+        "SCHEDULE_EXACT_ALARM",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "CAMERA"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -40,12 +44,15 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "expo-notifications",
       "expo-task-manager",
       "expo-background-fetch",
       "expo-font",
       "expo-asset",
       "expo-router",
       "expo-web-browser",
+      "expo-image-picker",
+      "expo-document-picker",
       [
         "expo-splash-screen",
         {

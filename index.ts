@@ -7,6 +7,9 @@ import { renderRootComponent } from 'expo-router/build/renderRootComponent';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import { widgetTaskHandler } from './widget/widget-task-handler';
 
+// Background tasks must be imported at the top level
+import './utils/notification-tasks';
+
 // This file should only import and register the root. No components or exports
 // should be added here.
 renderRootComponent(App);

@@ -9,20 +9,9 @@ import { HelloWidget } from "./HelloWidget";
 import { CounterWidget } from "./CounterWidget";
 import { PrayerWidget } from "./PrayerWidget";
 
-const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
-
-type PrayerName = (typeof PRAYER_KEYS)[number];
-type StoredTimings = Record<PrayerName, string>;
-
-interface StoredState {
-  dateISO: string; // "YYYY-MM-DD" (device-local)
-  lat: number;
-  lng: number;
-  method: number; // Aladhan method id
-  school: 0 | 1; // 0: Shafi, 1: Hanafi
-  timings: StoredTimings; // e.g. { Maghrib: "17:32" }
-  tz: string; // e.g. "Asia/Jakarta"
-}
+// Utilities
+import { StoredState, PRAYER_STORAGE_KEY } from "@/utils/prayer-storage";
+import { refreshAndReschedule, localDateISO } from "@/utils/prayer-api";
 
 const nameToWidget = {
   // Hello will be the **name** with which we will reference our widget.
@@ -33,7 +22,6 @@ const nameToWidget = {
 
 export const COUNTER_STORAGE_KEY = "CounterWidget:count";
 export const COUNTER_BACKGROUND_KEY = "CounterWidget:backgroundColor";
-export const PRAYER_STORAGE_KEY = "prayer-times";
 
 export function getStoredBackgroundColor(): ColorProp {
   return (Storage.getItemSync(COUNTER_BACKGROUND_KEY) ||
@@ -46,7 +34,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     widgetInfo.widgetName as keyof typeof nameToWidget
   ] as any;
 
-  const renderCurrentWidget = () => {
+  const renderCurrentWidget = async (stateOverride?: any) => {
     if (widgetInfo.widgetName === "Counter") {
       const stored = Storage.getItemSync(COUNTER_STORAGE_KEY);
       const count = stored ? Number(stored) : 0;
@@ -55,8 +43,29 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         <CounterWidget count={count} backgroundColor={backgroundColor} />,
       );
     } else if (widgetInfo.widgetName === "Prayer") {
-      const stored = Storage.getItemSync(PRAYER_STORAGE_KEY);
-      const state: StoredState = stored ? JSON.parse(stored) : ({} as any);
+      let state: StoredState = stateOverride || 
+        JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}");
+      
+      // Auto-refresh if it's a new day
+      const today = localDateISO();
+      if (state.dateISO && state.dateISO !== today) {
+          // Reset completions for the new day
+          state.completed = {};
+          state.dateISO = today;
+
+          try {
+              state = await refreshAndReschedule(
+                  state.method,
+                  state.school,
+                  undefined,
+                  state ? { lat: state.lat, lng: state.lng } : undefined
+              );
+          } catch (e) {
+              // Fallback to state with reset completions if refresh fails
+              Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(state));
+          }
+      }
+
       props.renderWidget(<PrayerWidget state={state} />);
     } else {
       props.renderWidget(<Widget {...widgetInfo} />);
@@ -67,7 +76,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     case "WIDGET_ADDED":
     case "WIDGET_UPDATE":
     case "WIDGET_RESIZED":
-      renderCurrentWidget();
+      await renderCurrentWidget();
       break;
 
     case "WIDGET_DELETED":
@@ -76,12 +85,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
 
     case "WIDGET_CLICK": {
       if (props.clickAction === "OPEN_APP") {
-        Linking.openURL("androidwidgetapp://home");
-        break;
-      }
-
-      if (props.clickAction === "OPEN_PRAYER") {
-        Linking.openURL("prayer-reminderv1://home");
+        Linking.openURL("prayer-reminderv1://(home)/index");
         break;
       }
 
@@ -91,9 +95,9 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
           getStoredBackgroundColor()) as ColorProp;
         const count =
           currentValue + (props.clickAction === "INCREMENT" ? 1 : -1);
-        
+
         Storage.setItemSync(COUNTER_STORAGE_KEY, `${count}`);
-        
+
         props.renderWidget(
           <CounterWidget count={count} backgroundColor={backgroundColor} />,
         );

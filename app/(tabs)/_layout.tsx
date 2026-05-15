@@ -1,66 +1,58 @@
-import { Platform } from 'react-native';
-import { useColor } from '@/hooks/useColor';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import MaterialIcons from '@expo/vector-icons/Feather';
-import {
-  Badge,
-  Icon,
-  Label,
-  NativeTabs,
-  VectorIcon,
-} from 'expo-router/unstable-native-tabs';
+import { Tabs } from "expo-router";
+import { useColor } from "@/hooks/useColor";
+import Feather from "@expo/vector-icons/Feather";
 
 export default function TabsLayout() {
-  const red = useColor('red');
-  const primary = useColor('primary');
-  const foreground = useColor('foreground');
+  const accent = useColor("blue");
+  const muted = useColor("textMuted");
+  const background = useColor("background");
+  const border = useColor("border");
 
   return (
-    <NativeTabs
-      minimizeBehavior='onScrollDown'
-      labelStyle={{
-        default: { color: primary },
-        selected: { color: foreground },
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
+        tabBarStyle: {
+          backgroundColor: background,
+          borderTopColor: border,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        tabBarActiveTintColor: accent,
+        tabBarInactiveTintColor: muted,
+        tabBarItemStyle: {
+          paddingTop: 8,
+        },
       }}
-      iconColor={{
-        default: primary,
-        selected: foreground,
-      }}
-      badgeBackgroundColor={red}
-      labelVisibilityMode='labeled'
-      disableTransparentOnScrollEdge={true}
     >
-      <NativeTabs.Trigger name='(home)'>
-        {Platform.select({
-          ios: <Icon sf='house.fill' />,
-          android: (
-            <Icon src={<VectorIcon family={MaterialIcons} name='home' />} />
+      <Tabs.Screen
+        name="(home)"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Feather name="home" size={24} color={color} />
           ),
-        })}
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
+        }}
+      />
 
-      <NativeTabs.Trigger name='chat'>
-        {Platform.select({
-          ios: <Icon sf='message.fill' />,
-          android: (
-            <Icon
-              src={<VectorIcon family={MaterialIcons} name='message-circle' />}
-            />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Feather name="message-circle" size={24} color={color} />
           ),
-        })}
-        <Label>Chat</Label>
-      </NativeTabs.Trigger>
+        }}
+      />
 
-      <NativeTabs.Trigger name='settings'>
-        {Platform.select({
-          ios: <Icon sf='gear' />,
-          android: (
-            <Icon src={<VectorIcon family={MaterialIcons} name='settings' />} />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Feather name="settings" size={24} color={color} />
           ),
-        })}
-        <Label>Settings</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+        }}
+      />
+    </Tabs>
   );
 }
