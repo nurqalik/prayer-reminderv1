@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Storage } from "expo-sqlite/kv-store";
 import { Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
+import * as React from "react";
+import { PrayerWidget } from "../widget/PrayerWidget";
 
 export const PRAYER_STORAGE_KEY = "prayer-times";
 export const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
@@ -21,17 +23,40 @@ export interface StoredState {
 }
 
 export async function saveState(s: StoredState) {
-  // Sync to widget storage (primary source of truth)
-  Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(s));
-  // Keep AsyncStorage for redundancy/web if needed
-  await AsyncStorage.setItem("@prayer_state", JSON.stringify(s));
+  const json = JSON.stringify(s);
+  
+  // 1. Sync to widget storage (primary source of truth)
+  try {
+    Storage.setItemSync(PRAYER_STORAGE_KEY, json);
+  } catch (e) {
+    console.error("Failed to save to kv-store:", e);
+  }
 
-  // Notify widget to update
+  // 2. Keep AsyncStorage for redundancy/web if needed
+  try {
+    await AsyncStorage.setItem("@prayer_state", json);
+  } catch (e) {
+    console.error("Failed to save to AsyncStorage:", e);
+  }
+
+  // 3. Notify widget to update
   if (Platform.OS === "android") {
     try {
-      await requestWidgetUpdate({ widgetName: "Prayer" });
+      // Small delay ensures the SQLite write is fully flushed and visible to the widget process
+      setTimeout(async () => {
+        try {
+          await requestWidgetUpdate({ 
+            widgetName: "Prayer",
+            renderWidget: () => React.createElement(PrayerWidget, { 
+              state: JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}") 
+            })
+          });
+        } catch (e) {
+          console.warn("Failed to update prayer widget:", e);
+        }
+      }, 100);
     } catch (e) {
-      console.warn("Failed to update prayer widget:", e);
+      console.warn("Failed to trigger widget update timeout:", e);
     }
   }
 }

@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpLink, loggerLink } from '@trpc/client';
+import { httpBatchLink, loggerLink } from '@trpc/client';
 import React, { useState } from 'react';
 import superjson from 'superjson';
 import { trpc } from '@/utils/trpc';
+import * as SecureStore from 'expo-secure-store';
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -12,9 +13,15 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
         loggerLink({
           enabled: () => true,
         }),
-        httpLink({
-          url: 'https://prayer-reminder-backend.vercel.app/api/trpc',
+        httpBatchLink({
+          url: `${process.env.EXPO_PUBLIC_API_URL}/api/trpc`,
           transformer: superjson as any,
+          async headers() {
+            const token = await SecureStore.getItemAsync('roe_auth_token');
+            return {
+              Authorization: token ? `Bearer ${token}` : undefined,
+            };
+          },
         }),
       ],
     })

@@ -1,6 +1,6 @@
 import React from "react";
 import { Linking } from "react-native";
-import Storage from "expo-sqlite/kv-store";
+import { Storage } from "expo-sqlite/kv-store";
 import type {
   ColorProp,
   WidgetTaskHandlerProps,
@@ -43,8 +43,14 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         <CounterWidget count={count} backgroundColor={backgroundColor} />,
       );
     } else if (widgetInfo.widgetName === "Prayer") {
-      let state: StoredState = stateOverride || 
-        JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}");
+      let state: StoredState;
+      try {
+        const raw = Storage.getItemSync(PRAYER_STORAGE_KEY);
+        state = stateOverride || (raw ? JSON.parse(raw) : {});
+      } catch (e) {
+        console.error("Failed to load state in widget:", e);
+        state = stateOverride || {} as StoredState;
+      }
       
       // Auto-refresh if it's a new day
       const today = localDateISO();
@@ -62,11 +68,19 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
               );
           } catch (e) {
               // Fallback to state with reset completions if refresh fails
-              Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(state));
+              try {
+                Storage.setItemSync(PRAYER_STORAGE_KEY, JSON.stringify(state));
+              } catch (err) {
+                console.error("Failed to save reset state in widget:", err);
+              }
           }
       }
 
-      props.renderWidget(<PrayerWidget state={state} />);
+      try {
+        props.renderWidget(<PrayerWidget state={state} />);
+      } catch (e) {
+        console.error("Failed to render PrayerWidget:", e);
+      }
     } else {
       props.renderWidget(<Widget {...widgetInfo} />);
     }

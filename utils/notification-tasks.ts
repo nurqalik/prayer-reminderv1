@@ -2,10 +2,14 @@ import * as TaskManager from "expo-task-manager";
 import * as Notifications from "expo-notifications";
 import * as BackgroundFetch from "expo-background-fetch";
 import { requestWidgetUpdate } from "react-native-android-widget";
+import * as React from "react";
+import { PrayerWidget } from "../widget/PrayerWidget";
+import { Storage } from "expo-sqlite/kv-store";
 import { 
   TASK_NAME, 
   loadState, 
   NOTIF_CHANNEL_ID,
+  PRAYER_STORAGE_KEY,
 } from "./prayer-storage";
 import { refreshAndReschedule, localDateISO, scheduleAllPrayers } from "./prayer-api";
 
@@ -46,7 +50,12 @@ TaskManager.defineTask(TASK_NAME, async () => {
       
       // Force widget to refresh with new day's data
       try {
-        await requestWidgetUpdate({ widgetName: "Prayer" });
+        await requestWidgetUpdate({ 
+          widgetName: "Prayer",
+          renderWidget: () => React.createElement(PrayerWidget, { 
+            state: JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}") 
+          })
+        });
       } catch (e) {
         // Ignore widget update errors in background
       }

@@ -9,66 +9,93 @@ import * as SecureStore from "expo-secure-store";
 import * as Application from "expo-application";
 import { Platform } from "react-native";
 import { trpc } from "@/utils/trpc";
+import { Buffer } from "buffer";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Storage } from "expo-sqlite/kv-store";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { useQueryClient } from "@tanstack/react-query";
 
 const USER_ID_STORAGE_KEY = "roe_user_id";
+const USER_NAME_STORAGE_KEY = "roe_user_name";
 const AUTH_COMPLETED_KEY = "roe_auth_completed";
+const AUTH_TOKEN_KEY = "roe_auth_token";
+const API_KEY_STORAGE = "gemini_api_key";
+const PRAYER_STORAGE_KEY = "prayer-times";
 
 interface AuthContextType {
   userId: string | null;
   userName: string | null;
+  token: string | null;
   isLoading: boolean;
+  isLoggingOut: boolean;
   isGuest: boolean;
   loginAsGuest: () => Promise<any>;
   login: (data: any) => Promise<any>;
   signup: (data: any) => Promise<any>;
   loginWithGoogle: (data: any) => Promise<any>;
-  upgradeToGoogle: (data: any) => Promise<any>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isTokenExpired(token: string) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+
+    const payload = parts[1];
+    // Decode base64url to base64
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = Buffer.from(base64, "base64").toString("utf8");
+    const { exp } = JSON.parse(decoded);
+
+    if (!exp) return false;
+
+    // Buffer of 60 seconds
+    return Date.now() >= exp * 1000 - 60000;
+  } catch (e) {
+    console.error("[Auth] Failed to decode token:", e);
+    return true;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const loginMutation = trpc.auth.login.useMutation();
-  const emailLoginMutation = (trpc.auth as any).loginWithEmail?.useMutation?.() || { mutateAsync: async () => { throw new Error("Email login not implemented on backend"); } };
-  const upgradeMutation = (trpc.auth as any).upgradeToEmail?.useMutation?.() || { mutateAsync: async () => { throw new Error("Upgrade not implemented on backend"); } };
-  const googleLoginMutation = (trpc.auth as any).loginWithGoogle?.useMutation?.() || { mutateAsync: async () => { throw new Error("Google login not implemented on backend"); } };
-  const googleUpgradeMutation = (trpc.auth as any).upgradeToGoogle?.useMutation?.() || { mutateAsync: async () => { throw new Error("Google upgrade not implemented on backend"); } };
+  const queryClient = useQueryClient();
+
+  const utils = trpc.useUtils();
+  const registerMutation = (trpc.auth as any).register.useMutation();
+  const loginWithEmailMutation = trpc.auth.loginWithEmail.useMutation();
+  const loginWithGoogleMutation = trpc.auth.loginWithGoogle.useMutation();
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: true,
+    });
+  }, []);
 
   const initAuth = useCallback(async () => {
     try {
-      let id = await SecureStore.getItemAsync(USER_ID_STORAGE_KEY);
-      const hasCompletedAuth =
-        await SecureStore.getItemAsync(AUTH_COMPLETED_KEY);
-      const androidId = Application.getAndroidId();
-      console.log("[Auth] Init - Stored ID:", id);
+      const storedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+      const storedUserId = await SecureStore.getItemAsync(USER_ID_STORAGE_KEY);
+      const storedUserName = await SecureStore.getItemAsync(USER_NAME_STORAGE_KEY);
+      const hasCompletedAuth = await SecureStore.getItemAsync(AUTH_COMPLETED_KEY);
 
-      if (!id) {
-        if (Platform.OS === "android") {
-          id = androidId;
-          if (!id) {
-            id =
-              "fallback-" +
-              Math.random().toString(36).substring(2) +
-              Date.now().toString(36);
-          }
-        } else {
-          id =
-            Math.random().toString(36).substring(2) + Date.now().toString(36);
-        }
-        if (id) await SecureStore.setItemAsync(USER_ID_STORAGE_KEY, id);
-      }
-
-      if (id && hasCompletedAuth === "true") {
-        const user = await loginMutation.mutateAsync({ userId: id });
-        setUserId(user.id);
-        setUserName(user.name);
-        setIsGuest(!user.email);
+      if (storedToken && !isTokenExpired(storedToken)) {
+        setToken(storedToken);
+        setUserId(storedUserId);
+        setUserName(storedUserName);
+        setIsGuest(false);
+      } else if (hasCompletedAuth === "true" && storedUserId?.startsWith("guest_")) {
+        setUserId(storedUserId);
+        setIsGuest(true);
       }
     } catch (e) {
       console.error("[Auth] Initialization failed:", e);
@@ -82,15 +109,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [initAuth]);
 
   const loginAsGuest = async () => {
-    const id = await SecureStore.getItemAsync(USER_ID_STORAGE_KEY);
-    if (!id) return;
     try {
-      const user = await loginMutation.mutateAsync({ userId: id });
+      const randomId = `guest_${Math.random().toString(36).substring(2, 11)}`;
+      await SecureStore.setItemAsync(USER_ID_STORAGE_KEY, randomId);
       await SecureStore.setItemAsync(AUTH_COMPLETED_KEY, "true");
-      setUserId(user.id);
-      setUserName(user.name);
+      await SecureStore.deleteItemAsync(USER_NAME_STORAGE_KEY);
+      
+      setUserId(randomId);
+      setUserName(null);
+      setToken(null);
       setIsGuest(true);
-      return user;
+      return { user: { id: randomId } };
     } catch (e) {
       console.error("[Auth] Guest login failed", e);
       throw e;
@@ -99,12 +128,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (data: any) => {
     try {
-      const user = await emailLoginMutation.mutateAsync(data);
+      const result = await loginWithEmailMutation.mutateAsync(data);
       await SecureStore.setItemAsync(AUTH_COMPLETED_KEY, "true");
-      setUserId(user.id);
-      setUserName(user.name);
+      await SecureStore.setItemAsync(USER_ID_STORAGE_KEY, result.user.id);
+      if (result.user.name) {
+        await SecureStore.setItemAsync(USER_NAME_STORAGE_KEY, result.user.name);
+      }
+      if (result.token) {
+        await SecureStore.setItemAsync(AUTH_TOKEN_KEY, result.token);
+        setToken(result.token);
+      }
+      setUserId(result.user.id);
+      setUserName(result.user.name);
       setIsGuest(false);
-      return user;
+      return result;
     } catch (e) {
       console.error("[Auth] Login failed", e);
       throw e;
@@ -112,74 +149,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (data: any) => {
-    // 1. Get current device identity
-    let currentId = userId;
-    if (!currentId) {
-      currentId = await SecureStore.getItemAsync(USER_ID_STORAGE_KEY);
-    }
-    
-    if (!currentId) throw new Error("Could not identify device for signup");
-
     try {
-      // 2. Ensure an anonymous record exists in DB first
-      // The backend 'login' procedure handles this creation if it doesn't exist
-      await loginMutation.mutateAsync({ userId: currentId });
-      
-      // 3. Perform the actual upgrade to email account
-      const user = await upgradeMutation.mutateAsync({ ...data, userId: currentId });
-      
+      const result = await registerMutation.mutateAsync(data);
       await SecureStore.setItemAsync(AUTH_COMPLETED_KEY, "true");
-      setUserId(user.id);
-      setUserName(user.name);
+      await SecureStore.setItemAsync(USER_ID_STORAGE_KEY, result.user.id);
+      if (result.user.name) {
+        await SecureStore.setItemAsync(USER_NAME_STORAGE_KEY, result.user.name);
+      }
+      if (result.token) {
+        await SecureStore.setItemAsync(AUTH_TOKEN_KEY, result.token);
+        setToken(result.token);
+      }
+      setUserId(result.user.id);
+      setUserName(result.user.name);
       setIsGuest(false);
-      return user;
+      return result;
     } catch (e) {
-      console.error("[Auth] Signup/Upgrade failed", e);
+      console.error("[Auth] Registration failed", e);
       throw e;
     }
   };
 
-  const logout = async () => {
-    await SecureStore.deleteItemAsync(AUTH_COMPLETED_KEY);
-    setUserId(null);
-    setUserName(null);
-    setIsGuest(false);
-  };
-
   const loginWithGoogle = async (data: any) => {
     try {
-      const user = await googleLoginMutation.mutateAsync(data);
+      const result = await loginWithGoogleMutation.mutateAsync(data);
       await SecureStore.setItemAsync(AUTH_COMPLETED_KEY, "true");
-      setUserId(user.id);
-      setUserName(user.name);
+      await SecureStore.setItemAsync(USER_ID_STORAGE_KEY, result.user.id);
+      if (result.user.name) {
+        await SecureStore.setItemAsync(USER_NAME_STORAGE_KEY, result.user.name);
+      }
+      if (result.token) {
+        await SecureStore.setItemAsync(AUTH_TOKEN_KEY, result.token);
+        setToken(result.token);
+      }
+      setUserId(result.user.id);
+      setUserName(result.user.name);
       setIsGuest(false);
-      return user;
+      return result;
     } catch (e) {
       console.error("[Auth] Google login failed", e);
       throw e;
     }
   };
 
-  const upgradeToGoogle = async (data: any) => {
-    let currentId = userId;
-    if (!currentId) {
-      currentId = await SecureStore.getItemAsync(USER_ID_STORAGE_KEY);
+  const logout = async () => {
+    if (isLoggingOut) return;
+    
+    try {
+      setIsLoggingOut(true);
+      const isSignedIn = await GoogleSignin.hasPreviousSignIn();
+      if (isSignedIn) {
+        await GoogleSignin.signOut();
+        await GoogleSignin.revokeAccess();
+      }
+    } catch (e) {
+      console.warn("[Auth] Google SignOut failed:", e);
     }
-    if (!currentId) throw new Error("Could not identify device for upgrade");
 
     try {
-      const user = await googleUpgradeMutation.mutateAsync({
-        ...data,
-        userId: currentId,
-      });
-      await SecureStore.setItemAsync(AUTH_COMPLETED_KEY, "true");
-      setUserId(user.id);
-      setUserName(user.name);
-      setIsGuest(false);
-      return user;
+      await SecureStore.deleteItemAsync(AUTH_COMPLETED_KEY);
+      await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(USER_ID_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(USER_NAME_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(API_KEY_STORAGE);
+
+      Storage.removeItemSync(PRAYER_STORAGE_KEY);
+      await AsyncStorage.removeItem("@prayer_state");
+      await AsyncStorage.removeItem("@method_override");
     } catch (e) {
-      console.error("[Auth] Google upgrade failed", e);
-      throw e;
+      console.warn("[Auth] Failed to clear storage during logout", e);
+    }
+
+    try {
+      queryClient.clear();
+      await utils.invalidate();
+      setUserId(null);
+      setUserName(null);
+      setToken(null);
+      setIsGuest(false);
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -188,19 +237,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         userId,
         userName,
+        token,
         isLoading:
           isInitializing ||
-          loginMutation.isPending ||
-          emailLoginMutation.isPending ||
-          upgradeMutation.isPending ||
-          googleLoginMutation.isPending ||
-          googleUpgradeMutation.isPending,
+          registerMutation.isPending ||
+          loginWithEmailMutation.isPending ||
+          loginWithGoogleMutation.isPending,
+        isLoggingOut,
         isGuest,
         loginAsGuest,
         login,
         signup,
         loginWithGoogle,
-        upgradeToGoogle,
         logout,
       }}
     >

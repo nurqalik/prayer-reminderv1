@@ -37,7 +37,7 @@ export async function fetchPrayerTimes(
   school: 0 | 1 = 0,
 ) {
   const date = dateForApi();
-  const url = `https://api.aladhan.com/v1/timings/${date}?latitude=${lat}&longitude=${lng}&method=${method}&school=${school}`;
+  const url = `${process.env.EXPO_PUBLIC_PRAYER_API_URL}/timings/${date}?latitude=${lat}&longitude=${lng}&method=${method}&school=${school}`;
   const res = await fetch(url);
   const json = await res.json();
   if (!json || json.code !== 200)

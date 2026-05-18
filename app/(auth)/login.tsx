@@ -33,7 +33,6 @@ export default function LoginScreen() {
     login,
     signup,
     loginWithGoogle,
-    upgradeToGoogle,
     isLoading: authLoading,
   } = useAuth();
 
@@ -49,18 +48,13 @@ export default function LoginScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Initialize Native Google Sign-In
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId:
-        "406758684869-oon4su278s5tm2rvjlofun1ebg4us031.apps.googleusercontent.com",
-      offlineAccess: true,
-    });
-  }, []);
+  // Google Sign-In is configured globally in AuthProvider,
+  // so we don't need to re-configure it here.
 
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
+      console.log("[Login] Starting Google Sign-In...");
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
 
@@ -74,20 +68,8 @@ export default function LoginScreen() {
         image: user.photo ?? undefined,
       };
 
-      try {
-        // Attempt to upgrade first (links existing guest session to Google)
-        await upgradeToGoogle(googleData);
-      } catch (e: any) {
-        // Fallback to standard login if account is already linked
-        if (
-          e.message?.includes("already linked") ||
-          e.message?.includes("CONFLICT")
-        ) {
-          await loginWithGoogle({ googleId: user.id });
-        } else {
-          throw e;
-        }
-      }
+      console.log("[Login] Google data retrieved, attempting login...");
+      await loginWithGoogle(googleData);
 
       toast({
         title: "Welcome!",
@@ -95,10 +77,15 @@ export default function LoginScreen() {
         variant: "success",
       });
     } catch (error: any) {
+      console.error("[Login] Google auth error:", error);
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // User closed the modal
+        // User closed the modal - silent
       } else if (error.code === statusCodes.IN_PROGRESS) {
-        // Operation already in progress
+        toast({
+          title: "In Progress",
+          description: "Login is already in progress",
+          variant: "info",
+        });
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         toast({
           title: "Error",
@@ -108,7 +95,9 @@ export default function LoginScreen() {
       } else {
         toast({
           title: "Google Login Error",
-          description: error.message,
+          description:
+            error.message ||
+            "An unexpected error occurred during Google sign-in.",
           variant: "error",
         });
       }
@@ -127,6 +116,7 @@ export default function LoginScreen() {
         await signup({ name, email, password });
       }
     } catch (e: any) {
+      console.error("[Login] Auth error:", e);
       toast({
         title: "Error",
         description:
@@ -140,12 +130,15 @@ export default function LoginScreen() {
 
   const handleGuestLogin = async () => {
     try {
+      console.log("[Login] Continuing as guest...");
       setLoading(true);
       await loginAsGuest();
-    } catch (e) {
+      console.log("[Login] Guest login successful");
+    } catch (e: any) {
+      console.error("[Login] Guest login failed:", e);
       toast({
         title: "Error",
-        description: "Failed to continue as guest.",
+        description: e?.message || "Failed to continue as guest.",
         variant: "error",
       });
     } finally {

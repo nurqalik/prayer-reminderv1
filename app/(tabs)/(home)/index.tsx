@@ -330,20 +330,45 @@ export default function HomeScreen() {
             marginBottom: 32,
           }}
         >
-          <View>
-            <Text variant="title" style={{ fontSize: 28, fontWeight: "800" }}>
-              {getGreeting(userName)}
-            </Text>
+          <View style={{ flex: 1, paddingRight: 16 }}>
+            {userName ? (
+              <>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    color: muted,
+                    marginBottom: 2,
+                    fontWeight: "500",
+                  }}
+                >
+                  {getGreeting()},
+                </Text>
+                <Text
+                  variant="title"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ fontSize: 28, fontWeight: "800", color: primary }}
+                >
+                  {userName}
+                </Text>
+              </>
+            ) : (
+              <Text
+                variant="title"
+                style={{ fontSize: 28, fontWeight: "800", color: primary }}
+              >
+                {getGreeting()}
+              </Text>
+            )}
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                marginTop: 4,
-                opacity: 0.6,
+                marginTop: 6,
               }}
             >
-              <Calendar size={14} color={muted} style={{ marginRight: 4 }} />
-              <Text variant="caption" style={{ fontSize: 14 }}>
+              <Calendar size={14} color={muted} style={{ marginRight: 6 }} />
+              <Text variant="caption" style={{ fontSize: 14, color: muted, fontWeight: "500" }}>
                 {now.toFormat("EEEE, d MMMM")}
               </Text>
             </View>

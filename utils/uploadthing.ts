@@ -5,7 +5,7 @@ import type { OurFileRouter } from "../../prayer-reminder-backend/src/server/upl
  * Generate typed hooks for UploadThing.
  * Note: The URL must be the full path to your UploadThing API endpoint.
  */
-export const { useImageUploader, useDocumentUploader } = 
+export const { useImageUploader, useDocumentUploader, useUploadThing, uploadFiles } = 
   generateReactNativeHelpers<OurFileRouter>({
-    url: "https://prayer-reminder-backend.vercel.app/api/uploadthing",
+    url: `${process.env.EXPO_PUBLIC_API_URL}/api/uploadthing`,
   });

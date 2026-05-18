@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Text, TouchableOpacity, Image } from "react-native";
 import type { WidgetConfigurationScreenProps } from "react-native-android-widget";
-import Storage from "expo-sqlite/kv-store";
+import { Storage } from "expo-sqlite/kv-store";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   COUNTER_BACKGROUND_KEY,

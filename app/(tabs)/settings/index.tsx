@@ -34,7 +34,6 @@ import { Storage } from "expo-sqlite/kv-store";
 import { useToast } from "@/components/ui/toast";
 import { trpc } from "@/utils/trpc";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "expo-router";
 
 // Utilities
 import { loadState, PRAYER_STORAGE_KEY } from "@/utils/prayer-storage";
@@ -43,8 +42,7 @@ import { refreshAndReschedule } from "@/utils/prayer-api";
 const API_KEY_STORAGE = "gemini_api_key";
 
 export default function SettingsScreen() {
-  const { userId, logout, isGuest } = useAuth();
-  const router = useRouter();
+  const { userId, logout, isGuest, isLoggingOut } = useAuth();
   const card = useColor("card");
   const border = useColor("border");
   const primary = useColor("text");
@@ -63,6 +61,7 @@ export default function SettingsScreen() {
 
   // tRPC Mutation
   const updateApiKeyMutation = trpc.auth.updateApiKey.useMutation();
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     (async () => {
@@ -80,7 +79,7 @@ export default function SettingsScreen() {
         setIsEditingKey(true);
       }
     })();
-  }, []);
+  }, [userId]); // Re-run when userId changes (e.g. after logout)
 
   const handleSelectMethod = async (methodId: number) => {
     try {
@@ -149,9 +148,11 @@ export default function SettingsScreen() {
       setLoading(true);
       // Update on backend
       await updateApiKeyMutation.mutateAsync({
-        userId,
         geminiApiKey: tempKey.trim(),
       });
+
+      // Force TRPC to refetch user data (including the new API key) across all tabs
+      await utils.auth.me.invalidate();
 
       // Update locally
       await SecureStore.setItemAsync(API_KEY_STORAGE, tempKey.trim());
@@ -175,8 +176,15 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    const wasGuest = isGuest;
     await logout();
-    if (!isGuest) {
+
+    // Clear local UI state
+    setApiKey("");
+    setIsEditingKey(true);
+
+    if (!wasGuest) {
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",
@@ -449,8 +457,12 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-            <Button size="sm" onPress={handleLogout}>
-              Link Email or Google
+            <Button size="sm" onPress={handleLogout} disabled={isLoggingOut}>
+              {isLoggingOut ? (
+                <Spinner size="sm" color="#fff" />
+              ) : (
+                "Link Email or Google"
+              )}
             </Button>
           </Card>
         )}
@@ -459,6 +471,7 @@ export default function SettingsScreen() {
           <Card style={{ padding: 0 }}>
             <TouchableOpacity
               onPress={handleLogout}
+              disabled={isLoggingOut}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -476,19 +489,23 @@ export default function SettingsScreen() {
                   marginRight: 16,
                 }}
               >
-                <LogOut size={20} color="#f43f5e" />
+                {isLoggingOut ? (
+                  <Spinner size="sm" color="#f43f5e" />
+                ) : (
+                  <LogOut size={20} color="#f43f5e" />
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text
                   style={{ fontWeight: "600", fontSize: 16, color: "#f43f5e" }}
                 >
-                  Logout
+                  {isLoggingOut ? "Logging out..." : "Logout"}
                 </Text>
                 <Text variant="caption" style={{ color: muted, marginTop: 2 }}>
                   End your current session
                 </Text>
               </View>
-              <ChevronRight size={20} color={muted} />
+              {!isLoggingOut && <ChevronRight size={20} color={muted} />}
             </TouchableOpacity>
           </Card>
         )}
