@@ -1,198 +1,75 @@
-# BNA UI 🚀
+# Roe Bot 🌙
 
-![BNA UI Header](https://bna-ui.s3.eu-north-1.amazonaws.com/bna-ui-header.png)
+A sleek, modern Islamic companion app designed to keep you connected to your faith. Roe Bot combines accurate prayer timing with an AI-powered assistant, all wrapped in a minimalist "Sleek Zinc" aesthetic.
 
-**B**uild **N**ative **A**pps - A powerful CLI for creating Expo React Native applications with a beautiful UI component library.
+![Roe Bot Banner](./assets/splash-icon-dark2.png)
 
-## ✨ Features
+## ✨ Key Features
 
-- 🎨 **Beautiful UI Components** - Pre-built, customizable components with modern design
-- 🌙 **Theme Support** - Built-in light/dark mode with seamless transitions
-- 📱 **Expo Router Ready** - Complete navigation setup with tab and stack navigation
-- 🎯 **TypeScript First** - Full TypeScript support with excellent IntelliSense
-- 📦 **Flexible Package Manager** - Works with npm, yarn, or pnpm
-- 🚀 **Zero Configuration** - Get started in seconds with sensible defaults
-- 🔧 **Highly Customizable** - Easily customize colors, spacing, and components
-- 📲 **Cross-Platform** - Perfect compatibility across iOS and Android
-- ⚡ **Performance Optimized** - Lightweight and fast components
-- 🎭 **Animation Ready** - Smooth animations with React Native Reanimated
+- 🕌 **Accurate Prayer Times** - Location-based timing with support for various calculation methods (Kemenag, MWL, ISNA, etc.).
+- 🤖 **Roe AI Companion** - A knowledgeable Muslimah assistant powered by Google Gemini, providing friendly guidance and Islamic context.
+- 📱 **Dynamic Home Screen Widgets** - Stay informed at a glance with "Next Prayer" and "Daily Schedule" widgets.
+- 🔔 **Smart Notifications** - High-priority, lock-screen-ready reminders for every prayer.
+- 🔐 **Privacy First (BYOK)** - "Bring Your Own Key" model. Your Gemini API key is stored securely on your device via `expo-secure-store`.
+- 🌓 **Modern Dark Mode** - Seamless zinc-themed UI optimized for both light and dark environments.
+- 📂 **Multimodal Chat** - Send images and documents to Roe for analysis via secure S3 uploads.
 
-## 📦 Installation
+## 🛠️ Technical Stack
 
-```bash
-# The fastest way to set up BNA UI in your Expo project:
-npx bna-ui init
+- **Framework:** [Expo](https://expo.dev/) / React Native (TypeScript)
+- **Backend:** [tRPC](https://trpc.io/) with Next.js (Proxy Backend)
+- **Database:** PostgreSQL (Prisma) for chat history, SQLite for local storage
+- **AI Integration:** Google Gemini SDK
+- **File Storage:** [UploadThing](https://uploadthing.com/)
+- **State Management:** TanStack Query & React Context
+- **Theming:** Minimalist Zinc CSS-in-JS
 
-# Navigate to your Expo project
-cd bna-app
+## 🚀 Getting Started
 
-# Start your Expo app
-npx expo start
+### Prerequisites
 
-# Start adding components
-npx bna-ui add button
-npx bna-ui add card
-npx bna-ui add input
-```
+- [Bun](https://bun.sh/) (Preferred package manager)
+- [Expo Go](https://expo.dev/go) or a development build
 
-## 🚀 Quick Start
+### Installation
 
-### Starting Your Project
-
-1. **Initialize your project** (if you haven't already):
+1. Clone the repository:
 
    ```bash
-   npx bna-ui init
-   cd bna-app
+   git clone https://github.com/justroe/prayer-reminderv1.git
+   cd prayer-reminderv1
    ```
 
-2. **Start your Expo app**:
+2. Install dependencies:
 
    ```bash
-   npx expo start
+   bun install
    ```
 
-## 🎨 Available Components
+3. Set up environment variables:
+   Copy `.env.example` to `.env` and fill in your tRPC backend URL.
 
-| Component      | Description                       | Status         |
-| -------------- | --------------------------------- | -------------- |
-| `Button`       | Customizable button with variants | ✅ Available   |
-| `Card`         | Container component with shadow   | ✅ Available   |
-| `Input`        | Text input with validation        | ✅ Available   |
-| `Bottom Sheet` | Overlay modal component           | ✅ Available   |
-| `Spinner`      | Loading spinner and skeletons     | ✅ Available   |
-| `Avatar`       | User profile image component      | ✅ Available   |
-| `Badge`        | Small status indicator            | ✅ Available   |
-| `Date Picker`  | Date Picker component             | ✅ Available   |
-| `Switch`       | Toggle switch component           | ✅ Available   |
-| `Progress`     | Range progress component          | ✅ Available   |
-| `Charts`       | Charts components.                | 🔄 Coming Soon |
+4. Start the development server:
+   ```bash
+   bun start
+   ```
 
-## 🎯 Usage Example
+## 🔐 Security & Privacy
 
-```tsx
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { View } from '@/components/ui/view';
+Roe Bot is built with data sovereignty in mind:
 
-export default function HomeScreen() {
-  return (
-    <View style={{ flex: 1, padding: 20 }}>
-      <Card>
-        <Input placeholder='Enter your email' keyboardType='email-address' />
-        <Button
-          variant='success'
-          onPress={() => console.log('Button pressed!')}
-        >
-          Get Started
-        </Button>
-      </Card>
-    </View>
-  );
-}
-```
-
-## 🌙 Theme Configuration
-
-BNA UI comes with a flexible theming system:
-
-```tsx
-// theme/colors.ts
-export const lightTheme = {
-  colors: {
-    background: '#FFFFFF',
-    foreground: '#000000',
-    card: '#F2F2F7',
-    cardForeground: '#000000',
-    popover: '#F2F2F7',
-    popoverForeground: '#000000',
-    primary: '#18181b',
-    primaryForeground: '#FFFFFF',
-    secondary: '#F2F2F7',
-    secondaryForeground: '#18181b',
-    muted: '#78788033',
-    mutedForeground: '#71717a',
-    // ... more colors
-  },
-};
-
-export const darkTheme = {
-  colors: {
-    background: '#000000',
-    foreground: '#FFFFFF',
-    card: '#1C1C1E',
-    cardForeground: '#FFFFFF',
-    popover: '#18181b',
-    popoverForeground: '#FFFFFF',
-    primary: '#e4e4e7',
-    primaryForeground: '#18181b',
-    secondary: '#1C1C1E',
-    secondaryForeground: '#FFFFFF',
-    muted: '#78788033',
-    mutedForeground: '#a1a1aa',
-    // ... more colors
-  },
-};
-```
-
-## 📱 Platform Support
-
-- ✅ **iOS** - Full native iOS support
-- ✅ **Android** - Full native Android support
-- ✅ **Web** - Responsive web support
-- ✅ **Expo Go** - Development with Expo Go
-- ✅ **EAS Build** - Production builds with EAS
-
-## 🛠️ Development
-
-```bash
-# Clone the repository
-git clone https://github.com/ahmedbna/bna-ui.git
-cd bna-ui
-
-# Install dependencies
-npm install
-
-# Build for production
-npm run build
-```
+- **API Keys:** Your Gemini API key is stored only in the device's **SecureStore**. It is never saved on our servers.
+- **Local First:** Prayer schedules and completion states are stored locally in a high-performance KV-store.
+- **Encrypted Transit:** All communications with the proxy backend are secured via HTTPS and JWT-based authentication.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please feel free to open issues or submit pull requests.
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔗 Links
-
-- 📚 **Documentation**: [https://ui.ahmedbna.com](https://ui.ahmedbna.com)
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/ahmedbna/ui/issues)
-- 💬 **Linkedin**: [@ahmedbna](https://www.linkedin.com/in/ahmedbna/)
-- 𝕏 **X**: [@ahmedbnaa](https://x.com/ahmedbnaa)
-
-## ⭐ Support
-
-If you find BNA UI helpful, please consider giving it a star on GitHub! It helps us a lot.
-
-[![GitHub stars](https://img.shields.io/github/stars/ahmedbna/ui?style=social)](https://github.com/ahmedbna/ui)
-
-## 📈 Stats
-
-![GitHub package.json version](https://img.shields.io/github/package-json/v/ahmedbna/ui)
-![npm](https://img.shields.io/npm/v/bna-ui)
-![npm](https://img.shields.io/npm/dm/bna-ui)
-![GitHub](https://img.shields.io/github/license/ahmedbna/ui)
-
 ---
 
-Made with ❤️ by [Ahmed BNA](https://github.com/ahmedbna)
+Made with ❤️ by [Roe Bot Team](https://github.com/nurqalik)
