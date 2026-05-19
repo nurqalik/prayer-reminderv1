@@ -19,7 +19,7 @@ export function PrayerWidget({ state }: { state: StoredState }) {
       if (!timeStr) continue;
       const [h, m] = timeStr.split(":").map(Number);
       const prayerMinutes = h * 60 + m;
-      if (prayerMinutes > currentMinutes) {
+      if (prayerMinutes >= currentMinutes) {
         nextPrayerName = name;
         break;
       }

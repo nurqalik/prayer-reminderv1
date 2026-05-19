@@ -68,40 +68,25 @@ export async function scheduleDailyPrayer(name: PrayerName, hhmm: string, tz: st
     return;
   }
 
+  // Use high priority and vibration to ensure it shows up on lock screen
   await Notifications.scheduleNotificationAsync({
     content: {
       title: `Time for ${name}`,
       body: `It is now ${hhmm}. Open the app to mark your prayer as completed.`,
       sound: true,
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      vibrate: [0, 250, 250, 250],
       data: { prayerName: name },
     },
     trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       channelId: NOTIF_CHANNEL_ID,
       hour,
       minute,
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
     },
   });
 
   __scheduledKeys.add(k);
-
-  // One-shot if it's the exact same minute
-  const now = DateTime.now();
-  if (now.hour === hour && now.minute === minute) {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `Time for ${name}`,
-        body: `It is now ${hhmm}. Open the app to mark your prayer as completed.`,
-        sound: true,
-        data: { prayerName: name },
-      },
-      trigger: {
-        seconds: 1,
-        channelId: NOTIF_CHANNEL_ID,
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      },
-    });
-  }
 }
 
 export async function scheduleAllPrayers(state: StoredState) {

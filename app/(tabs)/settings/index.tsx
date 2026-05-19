@@ -59,16 +59,22 @@ export default function SettingsScreen() {
   const [tempKey, setTempKey] = useState("");
   const [isEditingKey, setIsEditingKey] = useState(false);
 
-  // tRPC Mutation
-  const updateApiKeyMutation = trpc.auth.updateApiKey.useMutation();
-  const utils = trpc.useUtils();
+  // Namespace the storage key
+  const namespacedKey = userId ? `${userId}_gemini_api_key` : null;
 
   useEffect(() => {
     (async () => {
+      if (!namespacedKey) {
+        setApiKey("");
+        setIsEditingKey(true);
+        return;
+      }
+
       const [state, storedKey] = await Promise.all([
         loadState(),
-        SecureStore.getItemAsync(API_KEY_STORAGE),
+        SecureStore.getItemAsync(namespacedKey),
       ]);
+
       if (state) {
         setCurrentMethod(state.method);
       }
@@ -76,10 +82,11 @@ export default function SettingsScreen() {
         setApiKey(storedKey);
         setIsEditingKey(false);
       } else {
+        setApiKey("");
         setIsEditingKey(true);
       }
     })();
-  }, [userId]); // Re-run when userId changes (e.g. after logout)
+  }, [userId, namespacedKey]);
 
   const handleSelectMethod = async (methodId: number) => {
     try {
@@ -143,26 +150,20 @@ export default function SettingsScreen() {
   };
 
   const saveApiKey = async () => {
-    if (!tempKey.trim() || !userId) return;
+    if (!tempKey.trim() || !userId || !namespacedKey) return;
     try {
       setLoading(true);
-      // Update on backend
-      await updateApiKeyMutation.mutateAsync({
-        geminiApiKey: tempKey.trim(),
-      });
 
-      // Force TRPC to refetch user data (including the new API key) across all tabs
-      await utils.auth.me.invalidate();
+      // Store only locally for maximum privacy
+      await SecureStore.setItemAsync(namespacedKey, tempKey.trim());
 
-      // Update locally
-      await SecureStore.setItemAsync(API_KEY_STORAGE, tempKey.trim());
       setApiKey(tempKey.trim());
       setTempKey("");
       setIsEditingKey(false);
       setLoading(false);
       toast({
         title: "API Key Saved",
-        description: "Your Model API key has been securely updated.",
+        description: "Your key is stored locally on your device.",
         variant: "success",
       });
     } catch (e: any) {
@@ -343,7 +344,7 @@ export default function SettingsScreen() {
                       marginTop: 2,
                     }}
                   >
-                    {apiKey ? "✓ Securely Saved" : "Click to set your API key"}
+                    {apiKey ? "Securely Saved" : "Click to set your API key"}
                   </Text>
                 </View>
                 <ChevronRight size={20} color={muted} />
@@ -381,6 +382,21 @@ export default function SettingsScreen() {
                   secureTextEntry
                   containerStyle={{ width: "100%" }}
                 />
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    opacity: 0.8,
+                  }}
+                >
+                  <ShieldCheck size={14} color="#10b981" />
+                  <Text style={{ fontSize: 11, color: muted, flex: 1 }}>
+                    Your API key is safe and secure inside your phone. No data
+                    is sent to the apps.
+                  </Text>
+                </View>
 
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <Button

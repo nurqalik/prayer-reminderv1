@@ -211,7 +211,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
       await SecureStore.deleteItemAsync(USER_ID_STORAGE_KEY);
       await SecureStore.deleteItemAsync(USER_NAME_STORAGE_KEY);
-      await SecureStore.deleteItemAsync(API_KEY_STORAGE);
+      // We no longer delete the API key here because it is namespaced to the userId
+      // and we want it to persist locally for that user even after logout.
 
       Storage.removeItemSync(PRAYER_STORAGE_KEY);
       await AsyncStorage.removeItem("@prayer_state");

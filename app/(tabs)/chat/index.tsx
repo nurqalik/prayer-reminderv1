@@ -43,11 +43,12 @@ import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { trpc } from "@/utils/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentUploader, useUploadThing } from "@/utils/uploadthing";
 import { useToast } from "@/components/ui/toast";
+import * as SecureStore from "expo-secure-store";
 
 type Attachment = {
   uri: string;
@@ -95,16 +96,42 @@ export default function ChatScreen() {
   // tRPC Hooks
   const utils = trpc.useUtils();
 
+  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+
+  // Namespace the storage key
+  const namespacedKey = userId ? `${userId}_gemini_api_key` : null;
+
+  // Sync API key status whenever the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (namespacedKey) {
+        SecureStore.getItemAsync(namespacedKey).then((key) => {
+          setHasStoredApiKey(!!key);
+        });
+      } else {
+        setHasStoredApiKey(false);
+      }
+    }, [namespacedKey])
+  );
+
   // Reset session when user changes to prevent cross-account leaks
   useEffect(() => {
     setSessionId(null);
     setOptimisticMessages([]);
-  }, [userId]);
 
-  const meQuery = trpc.auth.me.useQuery(undefined, {
-    enabled: !!userId && !isGuest,
-  });
-  const hasApiKey = isGuest || !!meQuery.data?.geminiApiKey;
+    // Initial check for API key
+    if (namespacedKey) {
+      SecureStore.getItemAsync(namespacedKey).then((key) => {
+        setHasStoredApiKey(!!key);
+      });
+    } else {
+      setHasStoredApiKey(false);
+    }
+  }, [userId, namespacedKey]);
+
+  // For Guest mode, we assume they don't use AI or we handle it differently
+  // But based on previous logic, guest mode is restricted.
+  const hasApiKey = isGuest || hasStoredApiKey;
 
   const sessionsQuery = trpc.chat.getSessions.useQuery(undefined, {
     enabled: !!userId,
@@ -318,14 +345,18 @@ export default function ChatScreen() {
 
       try {
         const blob = await fetch(imgToUpload.uri).then((r) => r.blob());
-        const file = new File([blob], imgToUpload.name, { 
-          type: imgToUpload.mimeType || "application/octet-stream" 
+        const file = new File([blob], imgToUpload.name, {
+          type: imgToUpload.mimeType || "application/octet-stream",
         });
-        
-        // React Native FormData requires a uri property on the file blob
-        const RNFormDataCompatibleFile = Object.assign(file, { uri: imgToUpload.uri });
 
-        const uploadedFiles = await startUpload([RNFormDataCompatibleFile as unknown as File]);
+        // React Native FormData requires a uri property on the file blob
+        const RNFormDataCompatibleFile = Object.assign(file, {
+          uri: imgToUpload.uri,
+        });
+
+        const uploadedFiles = await startUpload([
+          RNFormDataCompatibleFile as unknown as File,
+        ]);
 
         if (uploadedFiles && uploadedFiles.length > 0) {
           const fileUrl = uploadedFiles[0].ufsUrl || uploadedFiles[0].url;

@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.qaliksulistyo.prayerreminderv1",
+      "bundleIdentifier": "com.justroe.prayerreminderv1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -46,7 +46,13 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff"
+        }
+      ],
       "expo-task-manager",
       "expo-background-fetch",
       "expo-font",
@@ -92,11 +98,32 @@
             {
               "name": "Prayer",
               "label": "Prayer Widget",
-              "minWidth": "320dp",
-              "minHeight": "120dp",
-              "targetCellWidth": 5,
+              "resizeMode": "horizontal|vertical",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
               "targetCellHeight": 2,
+              "minResizeWidth": "110dp",
+              "minResizeHeight": "110dp",
+              "maxResizeWidth": "280dp",
+              "maxResizeHeight": "280dp",
               "description": "Prayer Widget",
+              "previewImage": "./assets/adaptive-icon.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "NextPrayer",
+              "label": "Next Prayer Widget",
+              "resizeMode": "horizontal|vertical",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "minResizeWidth": "110dp",
+              "minResizeHeight": "110dp",
+              "maxResizeWidth": "280dp",
+              "maxResizeHeight": "280dp",
+              "description": "Compact widget showing the next prayer",
               "previewImage": "./assets/adaptive-icon.png",
               "updatePeriodMillis": 1800000
             }
@@ -113,9 +140,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6bbcf289-c30b-4f8a-a298-9bc9daa1e313"
+        "projectId": "0b93e788-52f9-4549-bd07-46470c352902"
       }
     },
-    "owner": "qaliksulistyo"
+    "owner": "justroe"
   }
 }

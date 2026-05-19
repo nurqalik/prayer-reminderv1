@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import * as React from "react";
 import { PrayerWidget } from "../widget/PrayerWidget";
+import { NextPrayerWidget } from "../widget/NextPrayerWidget";
 
 export const PRAYER_STORAGE_KEY = "prayer-times";
 export const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
@@ -45,14 +46,21 @@ export async function saveState(s: StoredState) {
       // Small delay ensures the SQLite write is fully flushed and visible to the widget process
       setTimeout(async () => {
         try {
+          const raw = Storage.getItemSync(PRAYER_STORAGE_KEY);
+          if (!raw) return;
+          const state = JSON.parse(raw);
+          
           await requestWidgetUpdate({ 
             widgetName: "Prayer",
-            renderWidget: () => React.createElement(PrayerWidget, { 
-              state: JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}") 
-            })
+            renderWidget: () => React.createElement(PrayerWidget, { state })
+          });
+
+          await requestWidgetUpdate({ 
+            widgetName: "NextPrayer",
+            renderWidget: () => React.createElement(NextPrayerWidget, { state })
           });
         } catch (e) {
-          console.warn("Failed to update prayer widget:", e);
+          console.warn("Failed to update widgets:", e);
         }
       }, 100);
     } catch (e) {

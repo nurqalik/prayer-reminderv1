@@ -8,6 +8,7 @@ import type {
 import { HelloWidget } from "./HelloWidget";
 import { CounterWidget } from "./CounterWidget";
 import { PrayerWidget } from "./PrayerWidget";
+import { NextPrayerWidget } from "./NextPrayerWidget";
 
 // Utilities
 import { StoredState, PRAYER_STORAGE_KEY } from "@/utils/prayer-storage";
@@ -18,6 +19,7 @@ const nameToWidget = {
   Hello: HelloWidget,
   Counter: CounterWidget,
   Prayer: PrayerWidget,
+  NextPrayer: NextPrayerWidget,
 };
 
 export const COUNTER_STORAGE_KEY = "CounterWidget:count";
@@ -42,7 +44,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
       props.renderWidget(
         <CounterWidget count={count} backgroundColor={backgroundColor} />,
       );
-    } else if (widgetInfo.widgetName === "Prayer") {
+    } else if (widgetInfo.widgetName === "Prayer" || widgetInfo.widgetName === "NextPrayer") {
       let state: StoredState;
       try {
         const raw = Storage.getItemSync(PRAYER_STORAGE_KEY);
@@ -77,9 +79,13 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
       }
 
       try {
-        props.renderWidget(<PrayerWidget state={state} />);
+        if (widgetInfo.widgetName === "Prayer") {
+          props.renderWidget(<PrayerWidget state={state} />);
+        } else {
+          props.renderWidget(<NextPrayerWidget state={state} />);
+        }
       } catch (e) {
-        console.error("Failed to render PrayerWidget:", e);
+        console.error(`Failed to render ${widgetInfo.widgetName}:`, e);
       }
     } else {
       props.renderWidget(<Widget {...widgetInfo} />);

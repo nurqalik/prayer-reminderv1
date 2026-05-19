@@ -1,9 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpBatchLink, loggerLink } from '@trpc/client';
-import React, { useState } from 'react';
-import superjson from 'superjson';
-import { trpc } from '@/utils/trpc';
-import * as SecureStore from 'expo-secure-store';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { httpBatchLink, loggerLink } from "@trpc/client";
+import React, { useState } from "react";
+import superjson from "superjson";
+import { trpc } from "@/utils/trpc";
+import * as SecureStore from "expo-secure-store";
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -17,21 +17,24 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           url: `${process.env.EXPO_PUBLIC_API_URL}/api/trpc`,
           transformer: superjson as any,
           async headers() {
-            const token = await SecureStore.getItemAsync('roe_auth_token');
+            const userId = await SecureStore.getItemAsync("roe_user_id");
+            const geminiKey = userId
+              ? await SecureStore.getItemAsync(`${userId}_gemini_api_key`)
+              : null;
+            const token = await SecureStore.getItemAsync("roe_auth_token");
             return {
               Authorization: token ? `Bearer ${token}` : undefined,
+              "x-gemini-api-key": geminiKey || undefined,
             };
           },
         }),
       ],
-    })
+    }),
   );
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </trpc.Provider>
   );
 }

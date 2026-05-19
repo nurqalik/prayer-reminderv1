@@ -74,10 +74,12 @@ function getNextPrayer(timings: Record<PrayerName, string>): {
   time: DateTime;
 } {
   const now = DateTime.now();
+  const nowNoSec = now.set({ second: 0, millisecond: 0 });
   const prayerTimes = PRAYER_KEYS.map((name) => {
     const { hour, minute } = parseHHmm(timings[name]);
     let time = now.set({ hour, minute, second: 0, millisecond: 0 });
-    if (time < now) {
+    // fajr time >= now time (ignoring seconds)
+    if (time < nowNoSec) {
       time = time.plus({ days: 1 });
     }
     return { name, time };
@@ -311,6 +313,14 @@ export default function HomeScreen() {
     if (!state) return null;
     return getNextPrayer(state.timings);
   }, [state, now]);
+
+  useEffect(() => {
+    if (state && nextPrayer) {
+      // Trigger a widget refresh whenever the next prayer changes
+      // This ensures the widget stays in sync with the app's calculation
+      saveState(state).catch(console.warn);
+    }
+  }, [nextPrayer?.name]);
 
   return (
     <View style={{ flex: 1, backgroundColor: background }}>

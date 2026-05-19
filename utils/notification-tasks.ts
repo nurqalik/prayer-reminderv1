@@ -4,6 +4,7 @@ import * as BackgroundFetch from "expo-background-fetch";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import * as React from "react";
 import { PrayerWidget } from "../widget/PrayerWidget";
+import { NextPrayerWidget } from "../widget/NextPrayerWidget";
 import { Storage } from "expo-sqlite/kv-store";
 import { 
   TASK_NAME, 
@@ -25,13 +26,20 @@ Notifications.setNotificationHandler({
   }),
 });
 
-Notifications.setNotificationChannelAsync(NOTIF_CHANNEL_ID, {
-  name: "Prayer Reminders",
-  importance: Notifications.AndroidImportance.HIGH,
-  bypassDnd: true,
-  vibrationPattern: [0, 250, 250, 250],
-  lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-});
+async function setupChannel() {
+  await Notifications.setNotificationChannelAsync(NOTIF_CHANNEL_ID, {
+    name: "Prayer Reminders",
+    importance: Notifications.AndroidImportance.MAX,
+    bypassDnd: true,
+    vibrationPattern: [0, 250, 250, 250],
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    enableVibrate: true,
+    showBadge: true,
+  });
+}
+
+// Initial setup call
+setupChannel().catch(console.warn);
 
 // --------------------- Background Task ---------------------
 
@@ -48,13 +56,16 @@ TaskManager.defineTask(TASK_NAME, async () => {
         stored ? { lat: stored.lat, lng: stored.lng } : undefined
       );
       
-      // Force widget to refresh with new day's data
+      // Force widgets to refresh with new day's data
       try {
+        const state = JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}");
         await requestWidgetUpdate({ 
           widgetName: "Prayer",
-          renderWidget: () => React.createElement(PrayerWidget, { 
-            state: JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}") 
-          })
+          renderWidget: () => React.createElement(PrayerWidget, { state })
+        });
+        await requestWidgetUpdate({ 
+          widgetName: "NextPrayer",
+          renderWidget: () => React.createElement(NextPrayerWidget, { state })
         });
       } catch (e) {
         // Ignore widget update errors in background
@@ -63,6 +74,17 @@ TaskManager.defineTask(TASK_NAME, async () => {
       const scheduled = await Notifications.getAllScheduledNotificationsAsync();
       if (scheduled.length === 0) {
         await scheduleAllPrayers(stored);
+      }
+      
+      // Periodically update the "Next Prayer" widget to ensure it transitions
+      try {
+        const state = JSON.parse(Storage.getItemSync(PRAYER_STORAGE_KEY) || "{}");
+        await requestWidgetUpdate({ 
+          widgetName: "NextPrayer",
+          renderWidget: () => React.createElement(NextPrayerWidget, { state })
+        });
+      } catch (e) {
+        // Ignore
       }
     }
     return BackgroundFetch.BackgroundFetchResult.NewData;
@@ -77,7 +99,7 @@ export async function ensureBackgroundTaskRegistered() {
     const isRegistered = await TaskManager.isTaskRegisteredAsync(TASK_NAME);
     if (!isRegistered) {
       await BackgroundFetch.registerTaskAsync(TASK_NAME, {
-        minimumInterval: 3 * 60 * 60,
+        minimumInterval: 60 * 60, // 1 hour for better reliability
         stopOnTerminate: false,
         startOnBoot: true,
       });
@@ -87,4 +109,6 @@ export async function ensureBackgroundTaskRegistered() {
   }
 }
 
-export const ensureNotifChannel = async () => {};
+export const ensureNotifChannel = async () => {
+  await setupChannel();
+};
